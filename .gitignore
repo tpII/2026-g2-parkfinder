@@ -1,0 +1,21 @@
+# Entorno virtual
+venv/
+.venv/
+env/
+
+# Cache de Python
+__pycache__/
+*.py[cod]
+
+# Imágenes de debug (se regeneran con los scripts)
+banco_pruebas/imagenes/debug_recorte/
+banco_pruebas/imagenes/debug_preproceso/
+banco_pruebas/imagenes/debug_confusiones/
+
+*.log
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

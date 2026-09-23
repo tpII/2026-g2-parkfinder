@@ -1,0 +1,10 @@
+# Dependencias del núcleo (ocr/), lo que corre en la Raspberry Pi.
+# Además: sudo apt install tesseract-ocr
+
+opencv-python-headless
+numpy
+pytesseract
+
+# Opcionales: instalar solo el motor que se elija tras medir en la Pi.
+# easyocr
+# paddleocr

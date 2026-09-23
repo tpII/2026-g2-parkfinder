@@ -1,0 +1,10 @@
+# Entorno de desarrollo completo: núcleo (ocr/) + banco de pruebas con los 3 motores.
+# Para la Raspberry Pi usar ocr/requirements.txt.
+# Requiere además el binario de Tesseract instalado en el sistema.
+
+opencv-python
+numpy
+pytesseract
+easyocr
+paddleocr
+paddlepaddle
