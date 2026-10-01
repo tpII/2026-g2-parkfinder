@@ -5,6 +5,10 @@ from validacion import PATRONES_POSICION, limpiar, validar
 
 DIGITO_A_LETRA = {"0": "O", "1": "I", "8": "B", "5": "S", "2": "Z"}
 LETRA_A_DIGITO = {v: k for k, v in DIGITO_A_LETRA.items()}
+# Solo en un sentido: el 0 de FE-Schrift tiene un corte arriba a la derecha y en
+# fotos de webcam Tesseract lo lee como G (XSO059 -> XSOG59, 2 de 10 lecturas).
+# En el banco nunca apareció una G en posición de dígito ni un 6 leído como G.
+LETRA_A_DIGITO["G"] = "0"
 
 
 def corregir_por_posicion(texto, patron):
