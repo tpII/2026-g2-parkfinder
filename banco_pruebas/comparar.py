@@ -1,24 +1,49 @@
 """Compara los motores OCR (Tesseract, EasyOCR, PaddleOCR) sobre el banco
-completo: precisión tras post-proceso + validación y tiempo por imagen.
+completo: precisión tras post-proceso + validación, tiempo por imagen,
+tiempo de carga del motor y pico de memoria.
 
-Uso: python comparar.py
-Salida: resultados_motores.csv
+Uso: python comparar.py [--motores tesseract,easyocr,paddleocr] [--salida archivo.csv]
+     En la Pi, de a un motor por proceso: el pico de memoria es del proceso
+     entero, así que con varios motores en la misma corrida se acumula.
+Salida: resultados_motores.csv (o la indicada en --salida)
 """
 
+import argparse
 import csv
+import importlib
 import time
 
 import cv2
 
 from banco import (BASE_DIR, imprimir_resumen, listar_imagenes, nivel_de,
                    patente_esperada, tamano_de)
-from motores.motor_easyocr import MotorEasyOCR
-from motores.motor_paddle import MotorPaddle
-from motores.motor_tesseract import MotorTesseract
 from postproceso import corregir
 from validacion import validar
 
-CSV_SALIDA = BASE_DIR / "resultados_motores.csv"
+# Import perezoso: en la Pi solo está instalado el motor que se está midiendo.
+MOTORES = {
+    "tesseract": ("motores.motor_tesseract", "MotorTesseract"),
+    "easyocr": ("motores.motor_easyocr", "MotorEasyOCR"),
+    "paddleocr": ("motores.motor_paddle", "MotorPaddle"),
+}
+
+
+def cargar_motor(nombre):
+    modulo, clase = MOTORES[nombre]
+    return getattr(importlib.import_module(modulo), clase)()
+
+
+def pico_memoria_mb():
+    """Pico de memoria residente (solo Linux/Mac; None en Windows): el de
+    Python más el del subproceso más grande, porque pytesseract ejecuta el
+    binario de Tesseract aparte y su memoria no cuenta en RUSAGE_SELF."""
+    try:
+        import resource
+    except ImportError:
+        return None
+    propio = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    hijos = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
+    return (propio + hijos) / 1024  # KB en Linux
 
 
 def evaluar_motor(motor, archivos):
@@ -53,37 +78,57 @@ def evaluar_motor(motor, archivos):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--motores", default=",".join(MOTORES),
+                        help="lista separada por comas: " + ", ".join(MOTORES))
+    parser.add_argument("--salida", default="resultados_motores.csv",
+                        help="nombre del CSV de salida (dentro de banco_pruebas/)")
+    args = parser.parse_args()
+    nombres = [n.strip() for n in args.motores.split(",") if n.strip()]
+    desconocidos = [n for n in nombres if n not in MOTORES]
+    if desconocidos:
+        parser.error(f"motores desconocidos: {', '.join(desconocidos)}")
+    csv_salida = BASE_DIR / args.salida
+
     archivos = listar_imagenes()
     if not archivos:
         print("No hay imágenes para evaluar (¿corriste recortar.py y degradar.py?)")
         return
 
-    motores = [MotorTesseract(), MotorEasyOCR(), MotorPaddle()]
-
     todas_las_filas = []
     resumen_final = []
-    for motor in motores:
-        print(f"\nCorriendo {motor.nombre} sobre {len(archivos)} imágenes...")
+    for nombre in nombres:
+        inicio = time.perf_counter()
+        motor = cargar_motor(nombre)
+        carga = time.perf_counter() - inicio
+        print(f"\n{motor.nombre} cargado en {carga:.1f} s")
+
+        print(f"Corriendo {motor.nombre} sobre {len(archivos)} imágenes...")
         filas = evaluar_motor(motor, archivos)
         todas_las_filas.extend(filas)
         ok = imprimir_resumen(f"=== {motor.nombre} ===", filas)
         tiempo_prom = sum(f["tiempo_seg"] for f in filas) / len(filas)
+        memoria = pico_memoria_mb()
         print(f"Tiempo promedio por imagen: {tiempo_prom:.3f} s")
-        resumen_final.append((motor.nombre, ok, tiempo_prom))
+        if memoria is not None:
+            print(f"Pico de memoria (Python + subproceso): {memoria:.0f} MB")
+        resumen_final.append((motor.nombre, ok, tiempo_prom, carga, memoria))
 
     print("\n=== Comparación final ===")
-    print(f"{'motor':12s} {'aciertos':16s} {'tiempo prom./img'}")
-    for nombre, ok, tiempo_prom in resumen_final:
-        print(f"{nombre:12s} {ok}/{len(archivos)} ({100 * ok / len(archivos):.1f}%)   {tiempo_prom:.3f} s")
+    print(f"{'motor':12s} {'aciertos':16s} {'tiempo prom./img':18s} {'carga':8s} {'pico RAM'}")
+    for nombre, ok, tiempo_prom, carga, memoria in resumen_final:
+        ram = f"{memoria:.0f} MB" if memoria is not None else "-"
+        print(f"{nombre:12s} {ok}/{len(archivos)} ({100 * ok / len(archivos):.1f}%)   "
+              f"{tiempo_prom:.3f} s            {carga:5.1f} s  {ram}")
 
-    with open(CSV_SALIDA, "w", newline="", encoding="utf-8") as f:
+    with open(csv_salida, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=[
             "motor", "tamano", "nivel", "archivo", "esperado",
             "leido", "confianza", "corregido", "formato", "ok", "tiempo_seg",
         ])
         w.writeheader()
         w.writerows(todas_las_filas)
-    print(f"\nGuardado detalle en {CSV_SALIDA.name}")
+    print(f"\nGuardado detalle en {csv_salida.name}")
 
 
 if __name__ == "__main__":

@@ -22,10 +22,12 @@ class MotorTesseract(MotorOCR):
     nombre = "tesseract"
 
     def leer(self, imagen_bgr):
+        # Una sola llamada: image_to_data trae texto y confianza por palabra. El
+        # texto unido da lo mismo que image_to_string en las 144 imágenes del banco.
         preprocesada, _ = preprocesar(imagen_bgr)
-        texto = pytesseract.image_to_string(preprocesada, config=CONFIG).strip()
-
         datos = pytesseract.image_to_data(preprocesada, config=CONFIG, output_type=Output.DICT)
+        texto = " ".join(p.strip() for p in datos["text"] if p.strip())
+
         confs = [float(c) for c in datos["conf"] if float(c) >= 0]
         confianza = (sum(confs) / len(confs) / 100) if confs else 0.0
 
