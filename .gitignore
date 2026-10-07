@@ -12,6 +12,7 @@ banco_pruebas/imagenes/debug_recorte/
 banco_pruebas/imagenes/debug_preproceso/
 banco_pruebas/imagenes/debug_confusiones/
 banco_pruebas/imagenes/debug_notebook/
+banco_pruebas/imagenes/debug_maqueta/
 
 *.log
 

@@ -21,6 +21,7 @@ import cv2
 MIN_ALTO_CARACTER = 8          # px; menos que esto no se puede leer
 MAX_ALTO_CARACTER = 0.8        # fracción del alto de la zona
 PROPORCION_CARACTER = (1.1, 6.0)  # alto / ancho: más altos que anchos (el 1 es angosto)
+PROPORCION_PEGADOS = (0.3, 1.1)   # alto / ancho de 2 o 3 caracteres pegados ("RE", "SO")
 RELLENO_MIN = 0.15             # área de tinta / área del rectángulo del carácter
 TOLERANCIA_ALTO = 0.25         # los caracteres de una patente miden lo mismo
 TOLERANCIA_FILA = 0.35         # centro vertical, en alturas de carácter
@@ -44,24 +45,27 @@ def escalar_zona(zona, resolucion, imagen):
     return round(x * fx), round(y * fy), round(w * fx), round(h * fy)
 
 
-def _caracteres(gris):
-    """Manchas oscuras con forma de carácter (x, y, ancho, alto)."""
+def _manchas(gris):
+    """Manchas oscuras (x, y, ancho, alto) separadas en dos listas: con forma
+    de carácter, y más anchas que altas (caracteres que la cámara pegó)."""
     alto, ancho = gris.shape
     # Umbral adaptativo: tolera luz despareja dentro de la zona.
     bloque = max(15, (min(alto, ancho) // 6) | 1)
     binaria = cv2.adaptiveThreshold(gris, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
                                     cv2.THRESH_BINARY_INV, bloque, 15)
     n, _, stats, _ = cv2.connectedComponentsWithStats(binaria, 8)
-    caracteres = []
+    caracteres, pegados = [], []
     for x, y, w, h, area in stats[1:n]:
         if h < MIN_ALTO_CARACTER or h > MAX_ALTO_CARACTER * alto:
             continue
-        if not PROPORCION_CARACTER[0] <= h / w <= PROPORCION_CARACTER[1]:
-            continue
         if area < RELLENO_MIN * w * h:
             continue
-        caracteres.append((int(x), int(y), int(w), int(h)))
-    return caracteres
+        mancha = (int(x), int(y), int(w), int(h))
+        if PROPORCION_CARACTER[0] <= h / w <= PROPORCION_CARACTER[1]:
+            caracteres.append(mancha)
+        elif PROPORCION_PEGADOS[0] <= h / w < PROPORCION_PEGADOS[1]:
+            pegados.append(mancha)
+    return caracteres, pegados
 
 
 def _mejor_fila(caracteres):
@@ -70,13 +74,20 @@ def _mejor_fila(caracteres):
     mejor = []
     for _, sy, _, sh in caracteres:
         centro = sy + sh / 2
-        fila = sorted((c for c in caracteres
-                       if abs(c[3] - sh) <= TOLERANCIA_ALTO * sh
-                       and abs(c[1] + c[3] / 2 - centro) <= TOLERANCIA_FILA * sh),
+        fila = [c for c in caracteres
+                if abs(c[3] - sh) <= TOLERANCIA_ALTO * sh
+                and abs(c[1] + c[3] / 2 - centro) <= TOLERANCIA_FILA * sh]
+        # Altura y huecos se miden contra la mediana de la fila, no contra la
+        # semilla: si no, una mancha algo más alta (p. ej. el borde de la caja)
+        # arrastra a la fila y estira el recorte.
+        mediana = sorted(c[3] for c in fila)[len(fila) // 2]
+        fila = sorted((c for c in fila if abs(c[3] - mediana) <= TOLERANCIA_ALTO * mediana),
                       key=lambda c: c[0])
+        if not fila:
+            continue
         tramo = [fila[0]]
         for anterior, actual in zip(fila, fila[1:]):
-            if actual[0] - (anterior[0] + anterior[2]) > HUECO_MAX * sh:
+            if actual[0] - (anterior[0] + anterior[2]) > HUECO_MAX * mediana:
                 if len(tramo) > len(mejor):
                     mejor = tramo
                 tramo = []
@@ -86,13 +97,39 @@ def _mejor_fila(caracteres):
     return mejor
 
 
+def _extender_con_pegados(fila, pegados):
+    """Suma a la fila las manchas de caracteres pegados de la misma altura,
+    alineadas y contiguas: sin esto, un "RE" pegado queda fuera del recorte."""
+    fila = list(fila)
+    sh = sorted(c[3] for c in fila)[len(fila) // 2]
+    centro = sorted(c[1] + c[3] / 2 for c in fila)[len(fila) // 2]
+    candidatos = [p for p in pegados
+                  if abs(p[3] - sh) <= TOLERANCIA_ALTO * sh
+                  and abs(p[1] + p[3] / 2 - centro) <= TOLERANCIA_FILA * sh]
+    agregado = True
+    while agregado:
+        agregado = False
+        x0 = min(c[0] for c in fila)
+        x1 = max(c[0] + c[2] for c in fila)
+        for p in candidatos:
+            if p in fila:
+                continue
+            hueco = max(x0 - (p[0] + p[2]), p[0] - x1)
+            if hueco <= HUECO_MAX * sh:
+                fila.append(p)
+                agregado = True
+    return fila
+
+
 def localizar_patente(zona_bgr):
     """(x0, y0, x1, y1) de la patente dentro de la zona, o None si no hay una
     fila de al menos MIN_CARACTERES caracteres."""
     gris = cv2.cvtColor(zona_bgr, cv2.COLOR_BGR2GRAY)
-    fila = _mejor_fila(_caracteres(gris))
+    caracteres, pegados = _manchas(gris)
+    fila = _mejor_fila(caracteres)
     if len(fila) < MIN_CARACTERES:
         return None
+    fila = _extender_con_pegados(fila, pegados)
     alto, ancho = gris.shape
     x0 = min(c[0] for c in fila)
     x1 = max(c[0] + c[2] for c in fila)

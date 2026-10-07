@@ -1,0 +1,8 @@
+{
+  "_comentario": "Zonas de las plazas en la maqueta (C270 a 30 cm, 1280x960). Calibradas el 2026-10-07 sin los anclajes definitivos de la cámara: revisar al anclarla. Plaza 1 = izquierda vista desde la cámara.",
+  "resolucion": [1280, 960],
+  "plazas": {
+    "1": [60, 270, 595, 290],
+    "2": [670, 270, 580, 290]
+  }
+}
