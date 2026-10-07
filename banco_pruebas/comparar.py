@@ -21,10 +21,12 @@ from postproceso import corregir
 from validacion import validar
 
 # Import perezoso: en la Pi solo está instalado el motor que se está midiendo.
+# Tesseract es el motor del sistema (ocr/motores/); EasyOCR y PaddleOCR quedaron
+# en motores_comparacion/ porque se descartaron y no corren en la Pi.
 MOTORES = {
     "tesseract": ("motores.motor_tesseract", "MotorTesseract"),
-    "easyocr": ("motores.motor_easyocr", "MotorEasyOCR"),
-    "paddleocr": ("motores.motor_paddle", "MotorPaddle"),
+    "easyocr": ("motores_comparacion.motor_easyocr", "MotorEasyOCR"),
+    "paddleocr": ("motores_comparacion.motor_paddle", "MotorPaddle"),
 }
 
 

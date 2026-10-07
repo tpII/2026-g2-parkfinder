@@ -26,7 +26,7 @@ from datetime import datetime
 from pathlib import Path
 
 from base_datos import BaseDatos
-from captura import FuenteCamara, FuenteCarpeta
+from captura import ErrorCaptura, FuenteCamara, FuenteCarpeta
 from motores.motor_tesseract import MotorTesseract
 from postproceso import corregir
 from recorte import cargar_plazas, escalar_zona, recortar_plaza
@@ -43,7 +43,8 @@ class Lectura:
     formato: str = None
     votos: int = 0
     capturas: int = 0
-    crudas: list = field(default_factory=list)   # lectura de cada captura (None = sin patente)
+    crudas: list = field(default_factory=list)   # lectura corregida de cada captura (None = sin patente)
+    textos_ocr: list = field(default_factory=list)  # lo que devolvió el motor, antes de corregir
     tiempos_ms: dict = field(default_factory=dict)
 
 
@@ -91,7 +92,16 @@ class Pipeline:
 
         for _ in range(self.capturas):
             inicio = time.perf_counter()
-            imagen = self.fuente.capturar()
+            try:
+                imagen = self.fuente.capturar()
+            except ErrorCaptura:
+                # Una captura fallida cuenta como "sin patente": la plaza igual
+                # quedó ocupada según el sensor y hay que registrarla.
+                tiempos["captura"] += time.perf_counter() - inicio
+                lectura.capturas += 1
+                lectura.crudas.append(None)
+                lectura.textos_ocr.append(None)
+                continue
             tiempos["captura"] += time.perf_counter() - inicio
 
             inicio = time.perf_counter()
@@ -101,6 +111,7 @@ class Pipeline:
             lectura.capturas += 1
             if recorte is None:
                 lectura.crudas.append(None)
+                lectura.textos_ocr.append(None)
                 continue
 
             inicio = time.perf_counter()
@@ -108,6 +119,7 @@ class Pipeline:
             tiempos["ocr"] += time.perf_counter() - inicio
             patente = corregir(texto)
             lectura.crudas.append(patente)
+            lectura.textos_ocr.append(texto)
             formato = validar(patente)
             if formato:
                 votos[patente] += 1

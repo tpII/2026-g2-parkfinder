@@ -1,10 +1,10 @@
 # Dependencias del núcleo (ocr/), lo que corre en la Raspberry Pi.
-# Además: sudo apt install tesseract-ocr
+# Además: sudo apt install tesseract-ocr mosquitto
 
 opencv-python-headless
 numpy
 pytesseract
+paho-mqtt
 
-# Opcionales: instalar solo el motor que se elija tras medir en la Pi.
-# easyocr
-# paddleocr
+# Motor elegido tras medir en la Pi: Tesseract. EasyOCR y PaddleOCR se
+# descartaron (ver conclusiones_motores_pi.md); no instalarlos.

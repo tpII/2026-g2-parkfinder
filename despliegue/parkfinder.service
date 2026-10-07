@@ -1,0 +1,25 @@
+# Servicio de ParkFinder en la Raspberry Pi: arranca el suscriptor MQTT al
+# encender, después de la red, del broker y de la sincronización del reloj.
+#
+# Instalación (una vez, con la cámara y config/plazas.json listos):
+#   sudo cp despliegue/parkfinder.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now parkfinder
+# Ver el registro:  journalctl -u parkfinder -f
+
+[Unit]
+Description=ParkFinder: lectura de patentes por evento de plaza
+Wants=network-online.target time-sync.target mosquitto.service
+After=network-online.target time-sync.target mosquitto.service
+
+[Service]
+User=g2
+WorkingDirectory=/home/g2/parkfinder/ocr
+Environment=OMP_THREAD_LIMIT=1
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/g2/parkfinder/venv/bin/python suscriptor.py --camara 0 --plazas /home/g2/parkfinder/config/plazas.json
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

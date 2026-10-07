@@ -8,3 +8,4 @@ pytesseract
 easyocr
 paddleocr
 paddlepaddle
+paho-mqtt

@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS lecturas (
     formato         TEXT,              -- 'viejo' / 'mercosur'
     votos           INTEGER NOT NULL,  -- capturas que coincidieron con la patente elegida
     capturas        INTEGER NOT NULL,
-    lecturas_crudas TEXT NOT NULL,     -- JSON: lo leído en cada captura (null = sin patente)
+    lecturas_crudas TEXT NOT NULL,     -- JSON: lectura corregida de cada captura (null = sin patente)
+    textos_ocr      TEXT,              -- JSON: lo que devolvió el motor en cada captura, antes de corregir
     t_captura_ms    REAL,
     t_recorte_ms    REAL,
     t_ocr_ms        REAL,
@@ -45,6 +46,10 @@ class BaseDatos:
         # WAL: el tótem puede leer mientras el pipeline escribe.
         self._con.execute("PRAGMA journal_mode=WAL")
         self._con.executescript(ESQUEMA)
+        # Bases creadas antes de guardar el texto crudo del OCR.
+        columnas = {fila[1] for fila in self._con.execute("PRAGMA table_info(lecturas)")}
+        if "textos_ocr" not in columnas:
+            self._con.execute("ALTER TABLE lecturas ADD COLUMN textos_ocr TEXT")
 
     def registrar_ingreso(self, lectura, momento):
         """Guarda la lectura y abre una estadía en la plaza. Devuelve el id de
@@ -56,10 +61,10 @@ class BaseDatos:
                 (momento, lectura.plaza))
             cursor = self._con.execute(
                 """INSERT INTO lecturas (momento, plaza, patente, formato, votos, capturas,
-                       lecturas_crudas, t_captura_ms, t_recorte_ms, t_ocr_ms, t_total_ms)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       lecturas_crudas, textos_ocr, t_captura_ms, t_recorte_ms, t_ocr_ms, t_total_ms)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (momento, lectura.plaza, lectura.patente, lectura.formato, lectura.votos,
-                 lectura.capturas, json.dumps(lectura.crudas),
+                 lectura.capturas, json.dumps(lectura.crudas), json.dumps(lectura.textos_ocr),
                  lectura.tiempos_ms["captura"], lectura.tiempos_ms["recorte"],
                  lectura.tiempos_ms["ocr"], lectura.tiempos_ms["total"]))
             cursor = self._con.execute(
