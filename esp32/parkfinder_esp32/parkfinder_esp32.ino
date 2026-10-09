@@ -32,11 +32,10 @@ void setup() {
   Serial.println();
   Serial.println("ParkFinder - Monitoreo de plazas");
 
-  // Estado inicial de todas las plazas. Queda pendiente y se
-  // publica (retenido) apenas se establece la conexión.
-  for (int i = 0; i < sensoresCantidadPlazas(); i++) {
-    informar(sensoresEstadoActual(i));
-  }
+  // El estado inicial no se publica acá: todavía no se midió nada, y
+  // publicar "libre" con un auto estacionado haría que la Raspberry Pi
+  // cierre su estadía. Lo informa sensoresActualizar() cuando lo confirma
+  // (~1,5 s), como cualquier cambio, y se publica (retenido) en loop().
 }
 
 void loop() {

@@ -13,13 +13,18 @@
 #include <Arduino.h>
 
 // ---------- Configuración ----------
-// Red WiFi (el ESP32 solo funciona en 2,4 GHz)
-#define WIFI_SSID      "nombre_red_wifi"
-#define WIFI_CLAVE     "contraseña_red_wifi"
+// Red WiFi (el ESP32 solo funciona en 2,4 GHz): WIFI_SSID y WIFI_CLAVE se
+// definen en credenciales.h, que no se sube al repositorio. Para crearlo,
+// copiar credenciales_ejemplo.h como credenciales.h y completar los datos.
+#include "credenciales.h"
 
-// Broker: IP Raspberry Pi
-#define MQTT_BROKER    "completar_con_ip"
+// Broker: la Raspberry Pi, buscada por nombre (mDNS) y no por IP, porque
+// la IP cambia según la red (casa, hotspot de la facultad). Si el nombre
+// no se resolviera en alguna red, se puede poner la IP directamente
+// (por ejemplo "192.168.0.14"): también funciona.
+#define MQTT_BROKER    "parkfinder.local"
 #define MQTT_PUERTO    1883
+#define MDNS_NOMBRE    "parkfinder-esp32"   // Nombre del ESP32 en la red
 #define MQTT_ID        "parkfinder-esp32"   // Debe ser único en el broker
 
 #define TEMA_BASE      "parkfinder/plaza/"  // Se le agrega el número de plaza

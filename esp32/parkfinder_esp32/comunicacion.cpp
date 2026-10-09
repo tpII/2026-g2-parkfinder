@@ -2,6 +2,7 @@
 
 #include "comunicacion.h"
 #include <WiFi.h>
+#include <ESPmDNS.h>
 #include <MQTT.h>
 
 static WiFiClient red;
@@ -18,6 +19,7 @@ static EstadoPlaza estados[MAX_PLAZAS] = {};
 static unsigned long ultimoIntento = 0;
 static bool primerIntento = true;
 static bool wifiAnterior = false;
+static bool mdnsIniciado = false;
 
 // Envía el estado guardado de una plaza. Devuelve true si el broker lo confirmó.
 static bool enviar(int plaza) {
@@ -48,7 +50,45 @@ static void enviarPendientes() {
   }
 }
 
+// true si MQTT_BROKER es un nombre ".local" (se busca por mDNS)
+static bool brokerEsMdns() {
+  const char *sufijo = ".local";
+  size_t largo = strlen(MQTT_BROKER), largoSufijo = strlen(sufijo);
+  return largo > largoSufijo && strcmp(MQTT_BROKER + largo - largoSufijo, sufijo) == 0;
+}
+
+// Carga en el cliente la dirección del broker. Si es un nombre ".local",
+// lo busca por mDNS en cada intento: la IP puede haber cambiado si el
+// ESP32 o la Pi cambiaron de red. La búsqueda bloquea hasta 2 s si la Pi
+// no responde; entre intentos (cada REINTENTO_MS) las mediciones siguen.
+static bool resolverBroker() {
+  if (!brokerEsMdns()) {
+    cliente.setHost(MQTT_BROKER, MQTT_PUERTO);  // IP escrita a mano
+    return true;
+  }
+  if (!mdnsIniciado) {
+    mdnsIniciado = MDNS.begin(MDNS_NOMBRE);
+    if (!mdnsIniciado) {
+      Serial.println("[mDNS] No se pudo iniciar");
+      return false;
+    }
+  }
+  String nombre = MQTT_BROKER;
+  nombre.remove(nombre.length() - strlen(".local"));  // queryHost va sin ".local"
+  IPAddress ip = MDNS.queryHost(nombre, 2000);
+  if (ip == IPAddress()) {
+    Serial.printf("[mDNS] No se encontró %s en la red\n", MQTT_BROKER);
+    return false;
+  }
+  Serial.printf("[mDNS] %s -> %s\n", MQTT_BROKER, ip.toString().c_str());
+  cliente.setHost(ip, MQTT_PUERTO);
+  return true;
+}
+
 static bool intentarConectar() {
+  if (!resolverBroker()) {
+    return false;
+  }
   Serial.printf("[MQTT] Conectando a %s:%d... ", MQTT_BROKER, MQTT_PUERTO);
 
   if (cliente.connect(MQTT_ID)) {
@@ -67,7 +107,8 @@ void comunicacionConectar() {
   WiFi.begin(WIFI_SSID, WIFI_CLAVE);
   Serial.printf("[WiFi] Conectando a %s...\n", WIFI_SSID);
 
-  cliente.begin(MQTT_BROKER, MQTT_PUERTO, red);
+  // La dirección del broker se carga en cada intento (resolverBroker)
+  cliente.begin(red);
   // keepalive 10 s, sesión limpia, timeout 1000 ms (acota el bloqueo al reconectar)
   cliente.setOptions(10, true, 1000);
 }
