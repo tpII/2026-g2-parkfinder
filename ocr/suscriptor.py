@@ -101,7 +101,8 @@ class Servicio:
             return
 
         if estado == "ocupada":
-            # El sensor detecta el auto antes de que termine de estacionar.
+            # Espera opcional antes de capturar. Con el ESP32 no hace falta: ya
+            # confirma 1,5 s con el auto quieto antes de avisar.
             time.sleep(self.espera_captura)
             lectura = self.pipeline.procesar_ocupada(plaza)
             # El texto crudo solo se muestra si la corrección por posición cambió algo.
@@ -130,8 +131,9 @@ def main():
     parser.add_argument("--plazas", required=True, help="JSON de plazas (formato de recorte.py)")
     parser.add_argument("--base", default=str(BASE_POR_DEFECTO), help="archivo SQLite")
     parser.add_argument("--capturas", type=int, default=3)
-    parser.add_argument("--espera-captura", type=float, default=1.0,
-                        help="segundos entre el aviso de ocupada y la captura")
+    parser.add_argument("--espera-captura", type=float, default=0.0,
+                        help="segundos entre el aviso de ocupada y la captura "
+                             "(el ESP32 ya confirma 1,5 s antes de avisar)")
     parser.add_argument("--broker", default="localhost")
     parser.add_argument("--puerto", type=int, default=1883)
     parser.add_argument("--sin-esperar-reloj", action="store_true",
@@ -155,10 +157,13 @@ def main():
     servicio = Servicio(pipeline, args.espera_captura)
     log.info("plazas %s, estado inicial %s", ", ".join(plazas), servicio.estado)
 
-    # clean_session=False + QoS 1: si el servicio se reinicia, el broker guarda
-    # los avisos que lleguen mientras tanto y los entrega al volver.
+    # Sesión limpia: al (re)conectarse, el estado de cada plaza llega por su
+    # mensaje retenido, que es el último y el real. Con sesión persistente el
+    # broker guardaba todos los avisos mientras el servicio estaba apagado y
+    # los entregaba juntos al volver: cada "ocupada" viejo disparaba una
+    # captura de la escena actual y abría estadías falsas (prueba del 09/10).
     cliente = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="parkfinder-pi",
-                          clean_session=False)
+                          clean_session=True)
     cliente.on_connect = servicio.al_conectar
     cliente.on_disconnect = servicio.al_desconectar
     cliente.on_message = servicio.al_recibir
