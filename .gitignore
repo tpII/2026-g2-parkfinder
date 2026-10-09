@@ -27,3 +27,6 @@ datos/
 *.db
 *.db-wal
 *.db-shm
+
+# Imagen de ocr/verificar_zonas.py
+verificacion_zonas.jpg
