@@ -137,13 +137,13 @@ def main():
     parser.add_argument("--broker", default="localhost")
     parser.add_argument("--puerto", type=int, default=1883)
     parser.add_argument("--sin-esperar-reloj", action="store_true",
-                        help="no esperar la sincronización NTP (solo para pruebas)")
+                        help="no verificar la hora por NTP o RTC (solo para pruebas)")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
     if not args.sin_esperar_reloj and not esperar_reloj():
-        raise SystemExit("El reloj no se sincronizó por NTP: no se registra con hora falsa.")
+        raise SystemExit("La hora no es confiable (ni NTP ni RTC): no se registra con hora falsa.")
 
     resolucion, plazas = cargar_plazas(args.plazas)
     base = BaseDatos(args.base)

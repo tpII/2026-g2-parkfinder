@@ -1,5 +1,6 @@
 # Servicio de ParkFinder en la Raspberry Pi: arranca el suscriptor MQTT al
-# encender, después de la red, del broker y de la sincronización del reloj.
+# encender, después de la red y del broker. Antes, hora_rtc.sh ajusta la hora
+# con el RTC DS3231 (o guarda en el RTC la hora de NTP si hay internet).
 #
 # Instalación (una vez, con la cámara y config/plazas.json listos):
 #   sudo cp despliegue/parkfinder.service /etc/systemd/system/
@@ -17,6 +18,9 @@ User=g2
 WorkingDirectory=/home/g2/parkfinder/ocr
 Environment=OMP_THREAD_LIMIT=1
 Environment=PYTHONUNBUFFERED=1
+# "+": como root (hwclock lo requiere). "-": si falla, el suscriptor igual
+# verifica la hora antes de registrar.
+ExecStartPre=-+/bin/sh /home/g2/parkfinder/despliegue/hora_rtc.sh
 ExecStart=/home/g2/parkfinder/venv/bin/python suscriptor.py --camara 0 --plazas /home/g2/parkfinder/config/plazas.json
 Restart=on-failure
 RestartSec=5

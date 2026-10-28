@@ -1,0 +1,8 @@
+# Lo que corre en la Raspberry Pi se guarda con finales de línea de Linux (LF),
+# también en la copia de trabajo de Windows: un script o un servicio con CRLF
+# falla en la Pi.
+*.py      text eol=lf
+*.sh      text eol=lf
+*.service text eol=lf
+*.json    text eol=lf
+*.txt     text eol=lf

@@ -52,11 +52,13 @@ def ahora():
     return datetime.now().isoformat(timespec="seconds")
 
 
-def reloj_sincronizado():
-    """La Pi no tiene RTC: tras un corte arranca con la última hora guardada
-    hasta que NTP la corrige. En Windows se asume sincronizado."""
-    if os.name == "nt":
-        return True
+# Hora del RTC (DS3231) que lee el kernel; no existe si el módulo no está.
+RTC_SEGUNDOS = Path("/sys/class/rtc/rtc0/since_epoch")
+HORA_MINIMA = 1767225600   # 01/01/2026: un RTC sin pila o sin configurar vuelve a 2000
+TOLERANCIA_RTC_SEG = 60    # solo detecta errores groseros (horas), no la deriva normal
+
+
+def ntp_sincronizado():
     try:
         salida = subprocess.run(["timedatectl", "show", "-p", "NTPSynchronized", "--value"],
                                 capture_output=True, text=True, timeout=5).stdout
@@ -65,9 +67,28 @@ def reloj_sincronizado():
     return salida.strip() == "yes"
 
 
+def rtc_coherente():
+    """La hora del sistema la cargó el RTC al arrancar: el RTC tiene una hora
+    plausible y el reloj del sistema coincide con él."""
+    try:
+        rtc = int(RTC_SEGUNDOS.read_text())
+    except (OSError, ValueError):
+        return False  # sin RTC, o el RTC perdió la hora (el driver devuelve error)
+    return rtc >= HORA_MINIMA and abs(time.time() - rtc) <= TOLERANCIA_RTC_SEG
+
+
+def reloj_confiable():
+    """Sin reloj con pila, tras un corte la Pi arranca con la última hora
+    guardada. La hora vale si la corrigió NTP o si la cargó el RTC.
+    En Windows se asume confiable."""
+    if os.name == "nt":
+        return True
+    return ntp_sincronizado() or rtc_coherente()
+
+
 def esperar_reloj(maximo_seg=120):
     for _ in range(maximo_seg):
-        if reloj_sincronizado():
+        if reloj_confiable():
             return True
         time.sleep(1)
     return False
@@ -155,11 +176,11 @@ def main():
     parser.add_argument("--base", default=str(BASE_POR_DEFECTO), help="archivo SQLite")
     parser.add_argument("--capturas", type=int, default=3)
     parser.add_argument("--sin-esperar-reloj", action="store_true",
-                        help="no esperar la sincronización NTP (solo para pruebas)")
+                        help="no verificar la hora por NTP o RTC (solo para pruebas)")
     args = parser.parse_args()
 
     if not args.sin_esperar_reloj and not esperar_reloj():
-        raise SystemExit("El reloj no se sincronizó por NTP: no se registra con hora falsa.")
+        raise SystemExit("La hora no es confiable (ni NTP ni RTC): no se registra con hora falsa.")
 
     resolucion, plazas = cargar_plazas(args.plazas)
     if args.plaza not in plazas:
