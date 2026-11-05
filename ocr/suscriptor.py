@@ -101,8 +101,9 @@ class Servicio:
             return
 
         if estado == "ocupada":
-            # Espera opcional antes de capturar. Con el ESP32 no hace falta: ya
-            # confirma 1,5 s con el auto quieto antes de avisar.
+            # Espera antes de capturar: el ESP32 confirma 1,5 s con el auto
+            # quieto, pero en la maqueta la mano puede seguir tapando la
+            # patente después de apoyar la caja (prueba del 03/11).
             time.sleep(self.espera_captura)
             lectura = self.pipeline.procesar_ocupada(plaza)
             # El texto crudo solo se muestra si la corrección por posición cambió algo.
@@ -133,7 +134,7 @@ def main():
     parser.add_argument("--capturas", type=int, default=3)
     parser.add_argument("--espera-captura", type=float, default=0.0,
                         help="segundos entre el aviso de ocupada y la captura "
-                             "(el ESP32 ya confirma 1,5 s antes de avisar)")
+                             "(el servicio usa 1 s; el ESP32 ya confirma 1,5 s antes de avisar)")
     parser.add_argument("--broker", default="localhost")
     parser.add_argument("--puerto", type=int, default=1883)
     parser.add_argument("--sin-esperar-reloj", action="store_true",
@@ -148,7 +149,12 @@ def main():
     resolucion, plazas = cargar_plazas(args.plazas)
     base = BaseDatos(args.base)
     if args.camara is not None:
-        fuente = FuenteCamara(args.camara)
+        # En la resolución de calibración de las zonas: la C270 en 720p
+        # recorta el cuadro (no lo escala) y las zonas quedarían corridas.
+        fuente = FuenteCamara(args.camara, ancho=resolucion[0], alto=resolucion[1])
+        if fuente.resolucion != tuple(resolucion):
+            log.warning("la cámara entrega %s y las zonas son de %s; se escalan",
+                        fuente.resolucion, tuple(resolucion))
     else:
         fuente = FuenteCarpeta(args.carpeta, patron=args.patron, repetir=True)
     motor = MotorTesseract()

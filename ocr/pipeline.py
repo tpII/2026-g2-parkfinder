@@ -186,7 +186,10 @@ def main():
     if args.plaza not in plazas:
         raise SystemExit(f"Plaza desconocida: {args.plaza} (hay: {', '.join(plazas)})")
     base = BaseDatos(args.base)
-    fuente = FuenteCamara(args.camara) if args.camara is not None else FuenteCarpeta(args.carpeta, repetir=True)
+    if args.camara is not None:
+        fuente = FuenteCamara(args.camara, ancho=resolucion[0], alto=resolucion[1])
+    else:
+        fuente = FuenteCarpeta(args.carpeta, repetir=True)
 
     with fuente:
         pipeline = Pipeline(fuente, MotorTesseract(), plazas, resolucion, base, args.capturas)
