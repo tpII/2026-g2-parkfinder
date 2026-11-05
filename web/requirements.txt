@@ -1,0 +1,6 @@
+# Dependencias del servicio web del tótem (web/), en el mismo entorno virtual
+# que ocr/ en la Raspberry Pi. Instalar con internet, antes de pasar a la red
+# propia de la Pi.
+
+flask
+waitress

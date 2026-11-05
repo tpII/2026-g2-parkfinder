@@ -1,0 +1,27 @@
+# Servicio web del tótem en la Raspberry Pi: atiende la consulta de patentes
+# en el puerto 80. Es independiente de parkfinder.service (suscriptor): si la
+# cámara o el OCR fallan, el tótem sigue respondiendo con lo ya registrado.
+#
+# Instalación (una vez, con internet para el pip):
+#   ~/parkfinder/venv/bin/pip install -r ~/parkfinder/web/requirements.txt
+#   sudo cp despliegue/parkfinder-web.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now parkfinder-web
+# Ver el registro:  journalctl -u parkfinder-web -f
+
+[Unit]
+Description=ParkFinder: servicio web del tótem de consulta
+After=network.target
+
+[Service]
+User=g2
+WorkingDirectory=/home/g2/parkfinder/web
+Environment=PYTHONUNBUFFERED=1
+# El puerto 80 es privilegiado: se habilita solo ese permiso, sin correr como root.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+ExecStart=/home/g2/parkfinder/venv/bin/python app.py --puerto 80 --base /home/g2/parkfinder/datos/parkfinder.db
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

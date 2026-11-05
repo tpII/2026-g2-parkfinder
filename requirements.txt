@@ -9,3 +9,5 @@ easyocr
 paddleocr
 paddlepaddle
 paho-mqtt
+flask
+waitress

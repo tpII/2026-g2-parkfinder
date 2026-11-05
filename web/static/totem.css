@@ -1,0 +1,297 @@
+/* ParkFinder: estilos del tótem de consulta. Los colores se cambian acá. */
+
+@font-face { font-family: Overpass; font-weight: 400; font-display: swap; src: url(fuentes/overpass-latin-400-normal.woff2) format("woff2"); }
+@font-face { font-family: Overpass; font-weight: 600; font-display: swap; src: url(fuentes/overpass-latin-600-normal.woff2) format("woff2"); }
+@font-face { font-family: Overpass; font-weight: 700; font-display: swap; src: url(fuentes/overpass-latin-700-normal.woff2) format("woff2"); }
+@font-face { font-family: Overpass; font-weight: 800; font-display: swap; src: url(fuentes/overpass-latin-800-normal.woff2) format("woff2"); }
+@font-face { font-family: "Overpass Mono"; font-weight: 700; font-display: swap; src: url(fuentes/overpass-mono-latin-700-normal.woff2) format("woff2"); }
+
+:root {
+  --azul: #1B57E0;         /* botones y plaza del usuario */
+  --azul-hover: #1547B8;
+  --azul-claro: #9DBBFF;   /* vidrios del auto del usuario */
+  --banda: #123A9C;        /* banda de la patente */
+  --tinta: #12233F;        /* textos principales */
+  --gris: #55667E;         /* textos secundarios */
+  --gris-claro: #9AA9BC;   /* ejemplo dentro de la patente */
+  --fondo: #F5F8FC;
+  --blanco: #FFFFFF;
+  --piso: #E3EAF3;         /* mapa de plazas */
+  --auto: #8393A8;         /* autos de otras personas */
+  --verde: #0B8A5F;        /* plaza libre */
+  --rojo: #D9384A;         /* plaza ocupada */
+  --error: #BE2537;
+  --error-fondo: #FDEEF0;
+  --radio: 13px;
+}
+
+* { box-sizing: border-box; margin: 0; }
+[hidden] { display: none !important; }
+
+html, body { height: 100%; }
+
+body {
+  background: var(--fondo);
+  color: var(--tinta);
+  font-family: Overpass, system-ui, sans-serif;
+}
+
+:focus-visible { outline: 3px solid var(--azul); outline-offset: 3px; }
+
+/* ---------- Estructura ---------- */
+
+.totem {
+  width: 100%;
+  max-width: 480px;
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 0 20px 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.vista {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.marca {
+  height: 64px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.marca__pin path { fill: var(--azul); }
+.marca__pin text { fill: var(--blanco); font-size: 15px; font-weight: 800; }
+
+/* ---------- Búsqueda ---------- */
+
+h1 {
+  margin-top: 10px;
+  font-size: 31px;
+  line-height: 1.08;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.bajada { margin-top: 8px; font-size: 16px; line-height: 1.35; color: var(--gris); }
+
+.patente {
+  display: block;
+  margin-top: 20px;
+  overflow: hidden;
+  background: var(--blanco);
+  border: 2.5px solid var(--tinta);
+  border-radius: var(--radio);
+}
+.patente:focus-within { outline: 3px solid var(--azul); outline-offset: 2px; }
+.patente--error { border-color: var(--error); }
+
+.patente__banda {
+  height: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding-top: 1px;
+  background: var(--banda);
+  color: var(--blanco);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+.bandera {
+  width: 17px;
+  height: 11px;
+  border-radius: 1.5px;
+  background: linear-gradient(#74ACDF 33%, #FFF 33% 67%, #74ACDF 67%);
+}
+
+.patente__texto {
+  display: block;
+  width: 100%;
+  height: 72px;
+  padding: 5px 4px 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--tinta);
+  font: 700 38px "Overpass Mono", monospace;
+  letter-spacing: 0.05em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.patente__texto::placeholder { color: var(--gris-claro); opacity: 1; }
+
+.ayuda { margin-top: 9px; font-size: 14px; color: var(--gris); text-align: center; }
+
+.error {
+  margin-top: 12px;
+  padding: 13px 14px 12px;
+  border-radius: 12px;
+  background: var(--error-fondo);
+  font-size: 14.5px;
+  line-height: 1.35;
+}
+.error strong { display: block; margin-bottom: 3px; color: var(--error); font-size: 16px; }
+
+.boton {
+  width: 100%;
+  height: 58px;
+  margin-top: 14px;
+  padding-top: 2px;
+  border: 0;
+  border-radius: var(--radio);
+  background: var(--azul);
+  color: var(--blanco);
+  font: 700 18px Overpass, system-ui, sans-serif;
+  cursor: pointer;
+}
+.boton:hover { background: var(--azul-hover); }
+.boton:disabled { opacity: 0.65; cursor: progress; }
+
+.boton--secundario {
+  background: var(--blanco);
+  color: var(--azul);
+  border: 2px solid var(--azul);
+}
+.boton--secundario:hover { background: var(--fondo); }
+
+/* ---------- Mapa de plazas ---------- */
+
+.mapa-titulo {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 9px;
+  font-size: 15px;
+}
+.mapa-titulo span { color: var(--gris); font-size: 14px; }
+
+.mapa {
+  position: relative;
+  padding-bottom: 72px; /* pasillo con la entrada */
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--piso);
+}
+.mapa--con-recorrido { padding-bottom: 98px; }
+
+.mapa__plazas { display: flex; }
+
+.plaza {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 170px;
+  --vidrio: var(--piso);
+  color: var(--tinta);
+}
+.plaza + .plaza { border-left: 3px solid var(--blanco); }
+
+.plaza--tuya {
+  --vidrio: var(--azul-claro);
+  border-left: 0;
+  border-radius: 10px;
+  background: var(--azul);
+  color: var(--blanco);
+}
+
+.plaza__numero { position: absolute; top: 11px; left: 13px; font-size: 27px; font-weight: 800; line-height: 1.2; }
+
+/* Punto que replica el LED físico de la plaza. */
+.plaza__led {
+  position: absolute;
+  top: 18px;
+  right: 13px;
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgb(255 255 255 / 0.8);
+  border-radius: 50%;
+  background: var(--rojo);
+}
+.plaza--libre .plaza__led { background: var(--verde); }
+
+.plaza__auto { position: absolute; top: 52px; left: 50%; width: 46px; height: 80px; margin-left: -23px; color: var(--auto); }
+.plaza--tuya .plaza__auto { color: var(--blanco); }
+
+.plaza__estado {
+  position: absolute;
+  right: 0;
+  bottom: 9px;
+  left: 0;
+  color: var(--gris);
+  font-size: 14.5px;
+  font-weight: 700;
+  text-align: center;
+}
+.plaza--libre .plaza__estado { color: var(--verde); }
+.plaza--tuya .plaza__estado { color: var(--blanco); }
+
+.mapa__recorrido { position: absolute; left: 0; bottom: 0; width: 100%; height: 98px; }
+.mapa__recorrido path {
+  fill: none;
+  stroke: var(--azul);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-dasharray: 1 9;
+}
+
+.mapa__entrada {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 16px 2px;
+  border-radius: 12px;
+  background: var(--blanco);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.mapa__aviso { padding: 40px 20px; color: var(--gris); font-size: 14.5px; text-align: center; }
+
+/* ---------- Resultado ---------- */
+
+.resultado__intro { margin-top: 12px; color: var(--gris); font-size: 17px; font-weight: 600; }
+.resultado__plaza { margin-top: 3px; color: var(--azul); font-size: 88px; font-weight: 800; line-height: 0.95; letter-spacing: -0.035em; }
+.resultado__lado { margin-top: 6px; font-size: 18px; font-weight: 600; }
+
+.ficha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  padding: 10px 14px 9px;
+  border-radius: 12px;
+  background: var(--blanco);
+  color: var(--gris);
+  font-size: 14.5px;
+}
+.ficha strong { color: var(--tinta); font: 700 18px "Overpass Mono", monospace; letter-spacing: 0.04em; }
+
+.reinicio { height: 4px; margin-top: 14px; overflow: hidden; border-radius: 2px; background: var(--piso); }
+.reinicio i { display: block; width: 100%; height: 100%; background: var(--azul); }
+.reinicio__texto { margin-top: 7px; color: var(--gris); font-size: 13.5px; text-align: center; }
+
+/* ---------- Pantalla apaisada (tótem horizontal, notebook) ---------- */
+
+@media (min-width: 820px) {
+  .totem { max-width: 960px; padding: 0 40px 32px; }
+  .vista { flex-direction: row; justify-content: center; align-items: center; gap: 56px; }
+  .columna-principal, .columna-mapa { flex: 1 1 0; min-width: 0; }
+}
+
+/* Teléfonos muy angostos: que la patente larga siga entrando. */
+@media (max-width: 340px) {
+  .patente__texto { font-size: 32px; }
+  .resultado__plaza { font-size: 72px; }
+}

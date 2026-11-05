@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#F5F8FC">
+  <title>ParkFinder · Encontrá tu auto</title>
+  <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/totem.css">
+</head>
+<body>
+  <!-- Dibujos reutilizables: el auto del mapa se pinta con CSS (color y --vidrio). -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="auto" viewBox="0 0 46 80">
+      <rect width="46" height="80" rx="13" fill="currentColor"/>
+      <path d="M7 25q16-8 32 0l-3 13H10Z" style="fill:var(--vidrio)"/>
+      <path d="M10 58h26l3 11q-16 5-32 0Z" style="fill:var(--vidrio)"/>
+    </symbol>
+  </svg>
+
+  <main class="totem">
+    <header class="marca">
+      <svg class="marca__pin" width="24" height="30" viewBox="0 0 24 30" aria-hidden="true">
+        <path d="M12 0C5.4 0 0 5.3 0 11.900 0 20 12 30 12 30s12-10 12-18.100C24 5.300 18.600 0 12 0Z"/>
+        <text x="12" y="17" text-anchor="middle">P</text>
+      </svg>
+      ParkFinder
+    </header>
+
+    <!-- Pantalla 1: ingreso de patente. También muestra los errores. -->
+    <section id="vista-busqueda" class="vista">
+      <div class="columna-principal">
+        <h1>¿Dónde dejaste tu auto?</h1>
+        <p class="bajada">Escribí tu patente y te mostramos la plaza.</p>
+
+        <form id="formulario" novalidate>
+          <label class="patente" id="patente-marco">
+            <span class="patente__banda"><span class="bandera"></span>ARGENTINA</span>
+            <input id="patente" class="patente__texto" type="text" inputmode="text"
+                   autocapitalize="characters" autocomplete="off" autocorrect="off"
+                   spellcheck="false" maxlength="9" placeholder="AB 123 CD"
+                   aria-label="Patente del auto" aria-describedby="ayuda">
+          </label>
+          <p id="ayuda" class="ayuda">Puede ser ABC 123 o AB 123 CD</p>
+          <div id="error" class="error" role="alert" hidden>
+            <strong id="error-titulo"></strong>
+            <span id="error-texto"></span>
+          </div>
+          <button id="buscar" class="boton" type="submit">Buscar mi auto</button>
+        </form>
+      </div>
+
+      <div class="columna-mapa">
+        <div class="mapa-titulo">
+          <strong>Estacionamiento</strong>
+          <span id="resumen-libres" aria-live="polite"></span>
+        </div>
+        <div id="mapa-busqueda" class="mapa"></div>
+      </div>
+    </section>
+
+    <!-- Pantalla 2: auto encontrado. -->
+    <section id="vista-resultado" class="vista" hidden>
+      <div class="columna-principal" aria-live="polite">
+        <p class="resultado__intro">Tu auto está en la</p>
+        <p id="resultado-plaza" class="resultado__plaza"></p>
+        <p id="resultado-lado" class="resultado__lado"></p>
+        <div class="ficha">
+          <strong id="resultado-patente"></strong>
+          <span id="resultado-desde"></span>
+        </div>
+      </div>
+
+      <div class="columna-mapa">
+        <div id="mapa-resultado" class="mapa mapa--con-recorrido"></div>
+        <button id="volver" class="boton boton--secundario" type="button">Buscar otra patente</button>
+        <div class="reinicio" aria-hidden="true"><i id="reinicio-barra"></i></div>
+        <p id="reinicio-texto" class="reinicio__texto"></p>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/totem.js"></script>
+</body>
+</html>
