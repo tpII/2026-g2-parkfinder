@@ -259,6 +259,17 @@ h1 {
 
 .mapa__aviso { padding: 40px 20px; color: var(--gris); font-size: 14.5px; text-align: center; }
 
+.aviso-sensado {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: var(--radio);
+  background: var(--error-fondo);
+  color: var(--error);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+.aviso-sensado[hidden] { display: none; }
+
 /* ---------- Resultado ---------- */
 
 .resultado__intro { margin-top: 12px; color: var(--gris); font-size: 17px; font-weight: 600; }

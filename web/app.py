@@ -11,7 +11,9 @@ Rutas:
   GET /api/patente/<patente>  plaza de una patente con estadía abierta
   GET /api/estado             estado de todas las plazas, sin patentes: el
                               tótem es público y no debe mostrar qué auto
-                              está en cada plaza
+                              está en cada plaza. "sensado" dice si el ESP32
+                              está conectado ("conectado", "desconectado" o
+                              null si todavía no se registró)
 
 Uso:
   python app.py                              (puerto 8080, base ../datos/parkfinder.db)
@@ -78,6 +80,14 @@ def crear_app(ruta_base=BASE_POR_DEFECTO, ruta_plazas=PLAZAS_POR_DEFECTO):
             "SELECT plaza, patente, ingreso FROM estadias WHERE egreso IS NULL ORDER BY plaza"
         ).fetchall()
 
+    def conexion_sensado(con):
+        try:
+            fila = con.execute(
+                "SELECT estado FROM conexion_sensado ORDER BY id DESC LIMIT 1").fetchone()
+        except sqlite3.OperationalError:
+            return None  # base creada antes de registrar la conexión del ESP32
+        return fila["estado"] if fila else None
+
     def sin_base():
         return jsonify(error="El sistema todavía no registró ningún vehículo."), 503
 
@@ -85,6 +95,11 @@ def crear_app(ruta_base=BASE_POR_DEFECTO, ruta_plazas=PLAZAS_POR_DEFECTO):
     def sin_cache(respuesta):
         if respuesta.mimetype == "application/json":
             respuesta.headers["Cache-Control"] = "no-store"
+        else:
+            # Página, JS, CSS y fuentes: el navegador consulta en cada carga si
+            # cambiaron (si no, responde 304 sin reenviarlos). Sin esto, un
+            # celular siguió usando el totem.js anterior después de actualizarlo.
+            respuesta.headers["Cache-Control"] = "no-cache"
         return respuesta
 
     @app.get("/")
@@ -119,9 +134,11 @@ def crear_app(ruta_base=BASE_POR_DEFECTO, ruta_plazas=PLAZAS_POR_DEFECTO):
             return sin_base()
         with con:
             ocupadas = {f["plaza"] for f in abiertas(con)}
+            sensado = conexion_sensado(con)
         con.close()
         return jsonify(plazas=[{**describir(plaza), "ocupada": plaza in ocupadas}
-                               for plaza in plazas])
+                               for plaza in plazas],
+                       sensado=sensado)
 
     return app
 

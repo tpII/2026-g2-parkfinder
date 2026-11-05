@@ -4,7 +4,12 @@ cierra.
 
 Se leen hasta `capturas` imágenes por evento y gana la lectura válida más
 repetida (la confianza de Tesseract no sirve: con --psm 8 + lista blanca da
-0). Si una lectura ya tiene mayoría se corta antes.
+0), solo si la repiten al menos `votos_minimos` capturas. Con una sola
+lectura válida no se registra: una "U" en lugar de un 0 o una C puede dar
+una patente con formato válido pero incorrecta (error silencioso, 09/10).
+Sin consenso, la plaza queda ocupada con la patente sin leer. Se corta
+antes si una lectura ya alcanzó el mínimo o si ninguna puede alcanzarlo con
+las capturas que faltan.
 
 Prueba manual (sin cámara, con una foto y un JSON de plazas de recorte.py):
   python pipeline.py --carpeta FOTOS --plazas plazas.json --plaza 1
@@ -42,6 +47,7 @@ class Lectura:
     patente: str = None       # None: ninguna captura dio una lectura válida
     formato: str = None
     votos: int = 0
+    candidata: str = None     # lectura válida más votada, aunque no alcance el mínimo (diagnóstico)
     capturas: int = 0
     crudas: list = field(default_factory=list)   # lectura corregida de cada captura (None = sin patente)
     textos_ocr: list = field(default_factory=list)  # lo que devolvió el motor, antes de corregir
@@ -95,7 +101,10 @@ def esperar_reloj(maximo_seg=120):
 
 
 class Pipeline:
-    def __init__(self, fuente, motor, plazas, resolucion, base, capturas=3):
+    def __init__(self, fuente, motor, plazas, resolucion, base, capturas=3, votos_minimos=2):
+        if not 1 <= votos_minimos <= capturas:
+            raise ValueError(f"votos_minimos debe estar entre 1 y {capturas}")
+        self.votos_minimos = votos_minimos
         self.fuente = fuente
         self.motor = motor
         self.plazas = plazas
@@ -112,6 +121,11 @@ class Pipeline:
         inicio_total = time.perf_counter()
 
         for _ in range(self.capturas):
+            # Con las capturas que faltan ninguna lectura llega al mínimo
+            # (por ejemplo, las dos primeras sin patente): no vale la pena seguir.
+            mejor = max(votos.values(), default=0)
+            if mejor + (self.capturas - lectura.capturas) < self.votos_minimos:
+                break
             inicio = time.perf_counter()
             try:
                 imagen = self.fuente.capturar()
@@ -145,13 +159,16 @@ class Pipeline:
             if formato:
                 votos[patente] += 1
                 formatos[patente] = formato
-                if votos[patente] > self.capturas // 2:
-                    break  # ya tiene mayoría: las capturas que faltan no la cambian
+                if votos[patente] >= self.votos_minimos:
+                    break  # ya tiene el mínimo: las capturas que faltan no la cambian
 
         if votos:
             # En empate gana la que apareció primero (Counter conserva el orden).
-            lectura.patente, lectura.votos = votos.most_common(1)[0]
-            lectura.formato = formatos[lectura.patente]
+            candidata, cantidad = votos.most_common(1)[0]
+            lectura.candidata = candidata
+            if cantidad >= self.votos_minimos:
+                lectura.patente, lectura.votos = candidata, cantidad
+                lectura.formato = formatos[candidata]
         tiempos["total"] = time.perf_counter() - inicio_total
         lectura.tiempos_ms = {etapa: round(1000 * t, 1) for etapa, t in tiempos.items()}
         return lectura
@@ -160,6 +177,14 @@ class Pipeline:
         lectura = self.leer_plaza(plaza)
         self.base.registrar_ingreso(lectura, ahora())
         return lectura
+
+    def releer_plaza(self, plaza):
+        """Vuelve a leer una plaza ocupada que quedó con la patente sin leer.
+        Devuelve (lectura, completada): completada es True si se registró la
+        patente en la estadía abierta."""
+        lectura = self.leer_plaza(plaza)
+        completada = bool(lectura.patente) and self.base.completar_patente(lectura, ahora())
+        return lectura, completada
 
     def procesar_libre(self, plaza):
         return self.base.registrar_egreso(plaza, ahora())
@@ -175,6 +200,8 @@ def main():
     parser.add_argument("--libre", action="store_true", help="evento de plaza libre (por defecto, ocupada)")
     parser.add_argument("--base", default=str(BASE_POR_DEFECTO), help="archivo SQLite")
     parser.add_argument("--capturas", type=int, default=3)
+    parser.add_argument("--votos-minimos", type=int, default=2,
+                        help="capturas que deben coincidir para registrar la patente")
     parser.add_argument("--sin-esperar-reloj", action="store_true",
                         help="no verificar la hora por NTP o RTC (solo para pruebas)")
     args = parser.parse_args()
@@ -192,7 +219,8 @@ def main():
         fuente = FuenteCarpeta(args.carpeta, repetir=True)
 
     with fuente:
-        pipeline = Pipeline(fuente, MotorTesseract(), plazas, resolucion, base, args.capturas)
+        pipeline = Pipeline(fuente, MotorTesseract(), plazas, resolucion, base,
+                            args.capturas, args.votos_minimos)
         if args.libre:
             cerrada = pipeline.procesar_libre(args.plaza)
             print(f"plaza {args.plaza} libre" + ("" if cerrada else " (no tenía estadía abierta)"))

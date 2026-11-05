@@ -81,6 +81,14 @@ class PruebasTotem(unittest.TestCase):
         self.assertNotIn(b"XSO059", r.data)
         self.assertEqual(r.headers["Cache-Control"], "no-store")
 
+    def test_estado_sensado(self):
+        self.assertIsNone(self.cliente.get("/api/estado").json["sensado"])
+        bd = BaseDatos(self.base)
+        bd.registrar_conexion("conectado", "2026-11-05T15:00:00")
+        bd.registrar_conexion("desconectado", "2026-11-05T15:05:00")
+        bd.cerrar()
+        self.assertEqual(self.cliente.get("/api/estado").json["sensado"], "desconectado")
+
     def test_sin_base(self):
         cliente = crear_app(Path(self.dir.name) / "no_existe.db", self.plazas).test_client()
         self.assertEqual(cliente.get("/api/estado").status_code, 503)
@@ -90,6 +98,10 @@ class PruebasTotem(unittest.TestCase):
         r = self.cliente.get("/")
         self.assertEqual(r.status_code, 200)
         self.assertIn(b"ParkFinder", r.data)
+        self.assertEqual(r.headers["Cache-Control"], "no-cache")
+        r.close()
+        r = self.cliente.get("/static/totem.js")
+        self.assertEqual(r.headers["Cache-Control"], "no-cache")
         r.close()
 
 

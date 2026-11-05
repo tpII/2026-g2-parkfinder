@@ -97,6 +97,8 @@ static bool intentarConectar() {
 
   if (cliente.connect(MQTT_ID)) {
     Serial.println("conectado");
+    // Reemplaza el "desconectado" retenido que haya dejado la última voluntad.
+    cliente.publish(TEMA_CONEXION, "conectado", true, 1);
     return true;
   }
   // lastError: error de red/biblioteca; returnCode: respuesta del broker
@@ -117,6 +119,9 @@ void comunicacionConectar() {
   cliente.begin(red);
   // keepalive 10 s, sesión limpia, timeout 1000 ms (acota el bloqueo al reconectar)
   cliente.setOptions(10, true, 1000);
+  // Última voluntad: el broker la publica si el ESP32 deja de responder.
+  // Se registra en cada connect(), por eso va antes del primer intento.
+  cliente.setWill(TEMA_CONEXION, "desconectado", true, 1);
 }
 
 void publicarEstado(int plaza, bool ocupada, float distanciaCm) {

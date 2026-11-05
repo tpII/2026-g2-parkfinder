@@ -114,12 +114,15 @@ async function actualizarPlazas() {
     if (!respuesta.ok) throw new Error(respuesta.status);
     const datos = await respuesta.json();
     plazas = datos.plazas.map((p) => ({ ...p, estado: p.ocupada ? "ocupada" : "libre" }));
+    // El ESP32 dejó de responder (última voluntad MQTT): el mapa puede estar desactualizado.
+    $("aviso-sensado").hidden = datos.sensado !== "desconectado";
     const libres = plazas.filter((p) => p.estado === "libre").length;
     const total = plazas.length;
     $("resumen-libres").textContent = `${libres} de ${total} ${total === 1 ? "plaza libre" : "plazas libres"}`;
   } catch {
     plazas = [];
     $("resumen-libres").textContent = "";
+    $("aviso-sensado").hidden = true;
   }
   // Si cambió alguna plaza, un error anterior (por ejemplo "puede estar en la
   // plaza 1") puede haber quedado desactualizado: se borra.

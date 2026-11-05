@@ -3,6 +3,9 @@
   el tiempo de cada etapa (diagnóstico y medición de latencia).
 - estadias: qué patente ocupa qué plaza, desde y hasta cuándo. Lo que
   consulta el tótem es la estadía abierta (egreso NULL) de una patente.
+- conexion_sensado: cada vez que el ESP32 se conecta o se desconecta del
+  broker. Mientras está desconectado, el estado de las plazas puede no estar
+  al día (RNF03).
 """
 
 import json
@@ -23,7 +26,8 @@ CREATE TABLE IF NOT EXISTS lecturas (
     t_captura_ms    REAL,
     t_recorte_ms    REAL,
     t_ocr_ms        REAL,
-    t_total_ms      REAL
+    t_total_ms      REAL,
+    relectura       INTEGER NOT NULL DEFAULT 0  -- 1: completó la patente de una estadía ya abierta
 );
 CREATE TABLE IF NOT EXISTS estadias (
     id          INTEGER PRIMARY KEY,
@@ -35,6 +39,11 @@ CREATE TABLE IF NOT EXISTS estadias (
 );
 CREATE INDEX IF NOT EXISTS idx_estadias_patente ON estadias(patente, egreso);
 CREATE INDEX IF NOT EXISTS idx_estadias_plaza ON estadias(plaza, egreso);
+CREATE TABLE IF NOT EXISTS conexion_sensado (
+    id      INTEGER PRIMARY KEY,
+    momento TEXT NOT NULL,
+    estado  TEXT NOT NULL              -- 'conectado' / 'desconectado'
+);
 """
 
 
@@ -50,6 +59,8 @@ class BaseDatos:
         columnas = {fila[1] for fila in self._con.execute("PRAGMA table_info(lecturas)")}
         if "textos_ocr" not in columnas:
             self._con.execute("ALTER TABLE lecturas ADD COLUMN textos_ocr TEXT")
+        if "relectura" not in columnas:
+            self._con.execute("ALTER TABLE lecturas ADD COLUMN relectura INTEGER NOT NULL DEFAULT 0")
 
     def registrar_ingreso(self, lectura, momento):
         """Guarda la lectura y abre una estadía en la plaza. Devuelve el id de
@@ -59,17 +70,38 @@ class BaseDatos:
             self._con.execute(
                 "UPDATE estadias SET egreso = ? WHERE plaza = ? AND egreso IS NULL",
                 (momento, lectura.plaza))
-            cursor = self._con.execute(
-                """INSERT INTO lecturas (momento, plaza, patente, formato, votos, capturas,
-                       lecturas_crudas, textos_ocr, t_captura_ms, t_recorte_ms, t_ocr_ms, t_total_ms)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (momento, lectura.plaza, lectura.patente, lectura.formato, lectura.votos,
-                 lectura.capturas, json.dumps(lectura.crudas), json.dumps(lectura.textos_ocr),
-                 lectura.tiempos_ms["captura"], lectura.tiempos_ms["recorte"],
-                 lectura.tiempos_ms["ocr"], lectura.tiempos_ms["total"]))
+            lectura_id = self._guardar_lectura(lectura, momento)
             cursor = self._con.execute(
                 "INSERT INTO estadias (plaza, patente, ingreso, lectura_id) VALUES (?, ?, ?, ?)",
-                (lectura.plaza, lectura.patente, momento, cursor.lastrowid))
+                (lectura.plaza, lectura.patente, momento, lectura_id))
+        return cursor.lastrowid
+
+    def completar_patente(self, lectura, momento):
+        """Relectura: pone la patente en la estadía abierta de la plaza que
+        quedó sin leer. La hora de ingreso no cambia. Devuelve False si la
+        plaza ya no tiene una estadía abierta sin patente (por ejemplo, el
+        auto salió)."""
+        with self._con:
+            fila = self._con.execute(
+                "SELECT id FROM estadias WHERE plaza = ? AND egreso IS NULL AND patente IS NULL",
+                (lectura.plaza,)).fetchone()
+            if fila is None:
+                return False
+            lectura_id = self._guardar_lectura(lectura, momento, relectura=True)
+            self._con.execute("UPDATE estadias SET patente = ?, lectura_id = ? WHERE id = ?",
+                              (lectura.patente, lectura_id, fila["id"]))
+        return True
+
+    def _guardar_lectura(self, lectura, momento, relectura=False):
+        cursor = self._con.execute(
+            """INSERT INTO lecturas (momento, plaza, patente, formato, votos, capturas,
+                   lecturas_crudas, textos_ocr, t_captura_ms, t_recorte_ms, t_ocr_ms, t_total_ms,
+                   relectura)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (momento, lectura.plaza, lectura.patente, lectura.formato, lectura.votos,
+             lectura.capturas, json.dumps(lectura.crudas), json.dumps(lectura.textos_ocr),
+             lectura.tiempos_ms["captura"], lectura.tiempos_ms["recorte"],
+             lectura.tiempos_ms["ocr"], lectura.tiempos_ms["total"], int(relectura)))
         return cursor.lastrowid
 
     def registrar_egreso(self, plaza, momento):
@@ -79,6 +111,22 @@ class BaseDatos:
                 "UPDATE estadias SET egreso = ? WHERE plaza = ? AND egreso IS NULL",
                 (momento, plaza))
         return cursor.rowcount > 0
+
+    def registrar_conexion(self, estado, momento):
+        """Guarda un cambio de conexión del ESP32. Devuelve False si es el
+        mismo estado que el último registrado (mensaje retenido repetido)."""
+        with self._con:
+            if self.conexion_sensado() == estado:
+                return False
+            self._con.execute("INSERT INTO conexion_sensado (momento, estado) VALUES (?, ?)",
+                              (momento, estado))
+        return True
+
+    def conexion_sensado(self):
+        """Último estado de conexión del ESP32, o None si nunca se registró."""
+        fila = self._con.execute(
+            "SELECT estado FROM conexion_sensado ORDER BY id DESC LIMIT 1").fetchone()
+        return fila["estado"] if fila else None
 
     def buscar_patente(self, patente):
         """Estadía abierta de la patente (plaza, ingreso), o None."""

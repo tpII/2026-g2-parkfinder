@@ -6,6 +6,13 @@
 // Contenido: "ocupada" o "libre"
 // Publicación con QoS 1 y retain = true.
 //
+// Conexión:  parkfinder/esp32/estado -> "conectado" | "desconectado"
+// "conectado" se publica al conectarse al broker. "desconectado" es el
+// mensaje de última voluntad (Last Will Testament): lo publica el broker si
+// el ESP32 deja de responder (keepalive de 10 s: lo detecta en unos 15 s).
+// Los dos son retenidos, así la Pi y el tótem saben si el estado de las
+// plazas está al día.
+//
 // Este módulo no depende de sensores: recibe datos simples
 // (plaza, ocupada, distancia) y se encarga solo de publicarlos.
 
@@ -30,6 +37,7 @@
 #define MQTT_ID        "parkfinder-esp32"   // Debe ser único en el broker
 
 #define TEMA_BASE      "parkfinder/plaza/"  // Se le agrega el número de plaza
+#define TEMA_CONEXION  "parkfinder/esp32/estado"
 #define REINTENTO_MS   5000                 // Espera entre intentos de reconexión
 #define MAX_PLAZAS     8                    // Plazas numeradas de 1 a MAX_PLAZAS
 // -----------------------------------
