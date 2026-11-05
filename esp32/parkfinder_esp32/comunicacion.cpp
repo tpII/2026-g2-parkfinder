@@ -2,9 +2,11 @@
 
 #include "comunicacion.h"
 #include <WiFi.h>
+#include <WiFiMulti.h>
 #include <ESPmDNS.h>
 #include <MQTT.h>
 
+static WiFiMulti redes;               // Redes conocidas: se conecta a la mejor disponible
 static WiFiClient red;
 static MQTTClient cliente(256);       // Buffer de 256 bytes, sobra para estos mensajes
 
@@ -18,6 +20,8 @@ static EstadoPlaza estados[MAX_PLAZAS] = {};
 
 static unsigned long ultimoIntento = 0;
 static bool primerIntento = true;
+static unsigned long ultimoIntentoWifi = 0;
+static bool primerIntentoWifi = true;
 static bool wifiAnterior = false;
 static bool mdnsIniciado = false;
 
@@ -103,9 +107,11 @@ static bool intentarConectar() {
 
 void comunicacionConectar() {
   WiFi.mode(WIFI_STA);
-  WiFi.setAutoReconnect(true);
-  WiFi.begin(WIFI_SSID, WIFI_CLAVE);
-  Serial.printf("[WiFi] Conectando a %s...\n", WIFI_SSID);
+  redes.addAP(WIFI_SSID, WIFI_CLAVE);
+#ifdef WIFI_SSID_2
+  redes.addAP(WIFI_SSID_2, WIFI_CLAVE_2);
+#endif
+  Serial.println("[WiFi] Buscando redes conocidas...");
 
   // La dirección del broker se carga en cada intento (resolverBroker)
   cliente.begin(red);
@@ -136,9 +142,19 @@ void comunicacionAtender() {
 
   // Estado del WiFi (se informa solo cuando cambia)
   bool wifiOk = (WiFi.status() == WL_CONNECTED);
+
+  // Sin WiFi: busca entre las redes conocidas cada REINTENTO_MS. El escaneo
+  // bloquea unos segundos, pero sin red no hay nada que publicar y los
+  // cambios de plaza quedan pendientes.
+  if (!wifiOk && (primerIntentoWifi || millis() - ultimoIntentoWifi >= REINTENTO_MS)) {
+    primerIntentoWifi = false;
+    wifiOk = (redes.run(4000) == WL_CONNECTED);
+    ultimoIntentoWifi = millis();
+  }
+
   if (wifiOk != wifiAnterior) {
     if (wifiOk) {
-      Serial.print("[WiFi] Conectado, IP: ");
+      Serial.printf("[WiFi] Conectado a %s, IP: ", WiFi.SSID().c_str());
       Serial.println(WiFi.localIP());
     } else {
       Serial.println("[WiFi] Desconectado");

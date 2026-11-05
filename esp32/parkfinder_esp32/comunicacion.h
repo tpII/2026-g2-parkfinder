@@ -13,9 +13,11 @@
 #include <Arduino.h>
 
 // ---------- Configuración ----------
-// Red WiFi (el ESP32 solo funciona en 2,4 GHz): WIFI_SSID y WIFI_CLAVE se
-// definen en credenciales.h, que no se sube al repositorio. Para crearlo,
-// copiar credenciales_ejemplo.h como credenciales.h y completar los datos.
+// Redes WiFi (el ESP32 solo funciona en 2,4 GHz): WIFI_SSID y WIFI_CLAVE, y
+// opcionalmente una segunda red con WIFI_SSID_2 y WIFI_CLAVE_2, se definen en
+// credenciales.h, que no se sube al repositorio. Para crearlo, copiar
+// credenciales_ejemplo.h como credenciales.h y completar los datos. Si hay
+// dos redes al alcance, se conecta a la de mejor señal.
 #include "credenciales.h"
 
 // Broker: la Raspberry Pi, buscada por nombre (mDNS) y no por IP, porque
